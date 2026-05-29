@@ -14,6 +14,8 @@ def apply_display_rules(df: pd.DataFrame) -> pd.DataFrame:
     """Remove globally excluded project names (case-insensitive substring match)."""
     if df.empty:
         return df
+    if not GLOBAL_NAME_EXCLUSIONS:
+        return df
     pattern = "|".join(GLOBAL_NAME_EXCLUSIONS)
     mask = df["project_full_name"].str.contains(pattern, case=False, na=False)
     return df[~mask].copy()
@@ -24,28 +26,22 @@ def apply_partner_rules(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty or not PARTNER_OVERRIDES:
         return df
 
-    keep = []
-    for _, row in df.iterrows():
+    mask = pd.Series(True, index=df.index)
+    for idx, row in df.iterrows():
         partner_key = str(row.get("partner", "") or "").upper().strip()
         overrides = PARTNER_OVERRIDES.get(partner_key, {})
+        name = str(row["project_full_name"])
 
         if "include_only" in overrides:
-            terms = overrides["include_only"]
-            name = str(row["project_full_name"])
-            if not any(t.lower() in name.lower() for t in terms):
+            if not any(t.lower() in name.lower() for t in overrides["include_only"]):
+                mask.at[idx] = False
                 continue
 
         if "exclude_names" in overrides:
-            terms = overrides["exclude_names"]
-            name = str(row["project_full_name"])
-            if any(t.lower() in name.lower() for t in terms):
-                continue
+            if any(t.lower() in name.lower() for t in overrides["exclude_names"]):
+                mask.at[idx] = False
 
-        keep.append(row)
-
-    if not keep:
-        return df.iloc[0:0].copy()
-    return pd.DataFrame(keep).reset_index(drop=True)
+    return df[mask].reset_index(drop=True).copy()
 
 
 def compute_metrics(df: pd.DataFrame) -> pd.DataFrame:
@@ -107,13 +103,19 @@ def compute_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     # Flag recently-closed projects (shown with a badge in the detail table)
     cutoff = today - timedelta(days=RECENTLY_CLOSED_DAYS)
-    df["is_recently_closed"] = df.apply(
-        lambda r: bool(r["tick_archived"] == 1)
-        and r.get("date_closed") is not None
-        and not pd.isna(r.get("date_closed"))
-        and str(r["date_closed"])[:10] >= str(cutoff),
-        axis=1,
-    )
+
+    def _is_recently_closed(row) -> bool:
+        if row["tick_archived"] != 1:
+            return False
+        dc = row.get("date_closed")
+        if dc is None or (isinstance(dc, float) and pd.isna(dc)):
+            return False
+        try:
+            return str(dc)[:10] >= str(cutoff)
+        except (TypeError, ValueError):
+            return False
+
+    df["is_recently_closed"] = df.apply(_is_recently_closed, axis=1)
 
     return df
 
@@ -148,7 +150,7 @@ def compute_action_items(df: pd.DataFrame) -> list[dict]:
         name    = str(row["project_full_name"])
         hrs     = round(float(row["total_hours"]), 1)
         budget  = int(row["project_budget_hours"]) if pd.notna(row["project_budget_hours"]) else "?"
-        hrs_left = round(float(row["hrs_left"]), 1) if row["hrs_left"] is not None else "?"
+        hrs_left = round(float(row["hrs_left"]), 1) if pd.notna(row["hrs_left"]) else "?"
         pct     = round(float(row["hours_pct"]), 0)
 
         is_urgent = row["over_budget"] or (row["near_budget"] and row["behind_schedule"])
@@ -210,7 +212,7 @@ def prepare_display(df: pd.DataFrame) -> pd.DataFrame:
     d["Hrs Used"]  = d["total_hours"].round(1)
     d["Budget"]    = d["project_budget_hours"].fillna(0).round(0).astype(int)
     d["% Used"]    = d["hours_pct"].round(1)
-    d["Hrs Left"]  = d["hrs_left"]
+    d["Hrs Left"]  = d["hrs_left"].apply(lambda v: round(v, 1) if pd.notna(v) else "—")
     d["Trend"]     = d["trend"]
     d["Status"]    = d["status"]
     return d[["Project", "Hrs Used", "Budget", "% Used", "Hrs Left", "Trend", "Status"]]
