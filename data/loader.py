@@ -34,11 +34,15 @@ def _build_engine():
 
 _ENGINE = _build_engine()
 
+_ALLOWED_SCHEMAS = {"", "production", "staging"}
+_SCHEMA = os.environ.get("DB_SCHEMA", "")
+if _SCHEMA not in _ALLOWED_SCHEMAS:
+    raise ValueError(f"Unexpected DB_SCHEMA value: {_SCHEMA!r}")
+
 
 def _tbl(name: str) -> str:
     """Prefix table name with DB_SCHEMA if set (e.g. 'production.project')."""
-    schema = os.environ.get("DB_SCHEMA", "")
-    return f"{schema}.{name}" if schema else name
+    return f"{_SCHEMA}.{name}" if _SCHEMA else name
 
 
 def load_projects() -> pd.DataFrame:
@@ -84,6 +88,7 @@ def load_hours() -> pd.DataFrame:
     with _ENGINE.connect() as conn:
         df = pd.read_sql(sql, conn)
     df["total_hours"] = pd.to_numeric(df["total_hours"], errors="coerce").fillna(0)
+    df["last_entry_date"] = pd.to_datetime(df["last_entry_date"], errors="coerce")
     return df
 
 
@@ -98,4 +103,5 @@ def get_data() -> pd.DataFrame:
         how="left",
     )
     df["total_hours"] = df["total_hours"].fillna(0.0)
+    df = df.drop(columns=["project_id"])
     return df
