@@ -65,8 +65,8 @@ def load_projects() -> pd.DataFrame:
             tick_archived,
             date_closed
         FROM {_tbl('project')}
-        WHERE tick_archived = 0
-           OR (tick_archived = 1 AND date_closed >= :cutoff)
+        WHERE NOT tick_archived
+           OR (tick_archived AND date_closed >= :cutoff)
     """)
     with _ENGINE.connect() as conn:
         df = pd.read_sql(sql, conn, params={"cutoff": str(cutoff)})

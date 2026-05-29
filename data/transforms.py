@@ -105,7 +105,7 @@ def compute_metrics(df: pd.DataFrame) -> pd.DataFrame:
     cutoff = today - timedelta(days=RECENTLY_CLOSED_DAYS)
 
     def _is_recently_closed(row) -> bool:
-        if row["tick_archived"] != 1:
+        if not row["tick_archived"]:
             return False
         dc = row.get("date_closed")
         if dc is None or (isinstance(dc, float) and pd.isna(dc)):
