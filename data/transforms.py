@@ -101,6 +101,28 @@ def compute_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     df["trend"] = df.apply(_trend, axis=1)
 
+    # Completed: asana_project_completed text flag OR completion date present
+    def _is_completed(row) -> bool:
+        flag = str(row.get("asana_project_completed") or "").strip().upper()
+        if flag == "TRUE":
+            return True
+        dt = row.get("asana_project_completed_date")
+        return bool(dt and pd.notna(dt))
+
+    df["is_completed"] = df.apply(_is_completed, axis=1)
+
+    # Margin: (invoice - direct_cogs) / invoice × 100, completed courses only
+    def _margin_pct(row) -> float | None:
+        if not row["is_completed"]:
+            return None
+        gross = row.get("asana_project_gross")
+        if not gross or pd.isna(gross) or gross <= 0:
+            return None
+        cogs = row.get("direct_cogs", 0) or 0
+        return (gross - cogs) / gross * 100
+
+    df["margin_pct"] = df.apply(_margin_pct, axis=1)
+
     # SOW: prefer parts[3] of project_full_name when it starts with "SOW",
     # fall back to asana_portfolio_name, then "No SOW"
     def _sow(row) -> str:
@@ -201,8 +223,9 @@ def compute_action_items(df: pd.DataFrame) -> list[dict]:
 
 
 def get_partner_list(df: pd.DataFrame) -> list[str]:
-    """Return sorted list of unique non-null partner values with at least one active project."""
-    active = df[~df["tick_archived"]]
+    """Return sorted partners that have active projects with hours logged, excluding iDesign."""
+    active = df[~df["tick_archived"] & (df["total_hours"] > 0)]
+    active = active[~active["partner"].astype(str).str.upper().str.contains("IDESIGN", na=False)]
     return sorted(active["partner"].dropna().astype(str).unique().tolist())
 
 

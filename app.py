@@ -328,8 +328,8 @@ def server(input: Inputs, output: Outputs, session: Session):
         total_budget = df["project_budget_hours"].sum()
         budget_pct = round(total_hrs / total_budget * 100, 1) if total_budget > 0 else 0.0
 
-        budgeted = df[df["project_budget_hours"] > 0]
-        avg_margin = (budgeted["hrs_left"] / budgeted["project_budget_hours"] * 100).mean()
+        completed = df[df["is_completed"] & df["margin_pct"].notna()]
+        avg_margin = completed["margin_pct"].mean() if not completed.empty else None
         avg_margin_str = f"{avg_margin:.1f}%" if pd.notna(avg_margin) else "—"
         margin_css = "kpi-red" if pd.notna(avg_margin) and avg_margin < 0 else "kpi-green" if pd.notna(avg_margin) and avg_margin >= 20 else "kpi-gold"
 
@@ -339,7 +339,7 @@ def server(input: Inputs, output: Outputs, session: Session):
             _kpi("On Track", str(on_track), "projects", "kpi-green"),
             _kpi("Total Hours Used", f"{total_hrs:,.0f}", f"of {total_budget:,.0f} budgeted", "kpi-teal"),
             _kpi("Overall Budget %", f"{budget_pct:.1f}%", "hours used", "kpi-gold"),
-            _kpi("Avg SOW Margin", avg_margin_str, "hrs remaining / budget", margin_css),
+            _kpi("Avg Course Margin", avg_margin_str, "completed courses (invoice − cost)", margin_css),
             class_="kpi-row",
         )
 
