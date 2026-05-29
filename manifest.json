@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "locale": "en_US",
+  "platform": "3.6",
+  "metadata": {
+    "appmode": "python-shiny",
+    "primary_rmd": null,
+    "primary_html": null,
+    "content_category": null,
+    "has_parameters": false
+  },
+  "python": {
+    "version": "3.11",
+    "package_manager": {
+      "name": "pip",
+      "version": "24.0",
+      "package_file": "requirements.txt"
+    }
+  },
+  "files": {
+    "app.py": {"checksum": ""},
+    "config.py": {"checksum": ""},
+    "requirements.txt": {"checksum": ""},
+    "data/__init__.py": {"checksum": ""},
+    "data/loader.py": {"checksum": ""},
+    "data/transforms.py": {"checksum": ""}
+  }
+}
