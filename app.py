@@ -27,6 +27,7 @@ from data.transforms import (
     get_partner_list,
     get_sow_list,
     prepare_display,
+    summarize_by_sow,
 )
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -211,7 +212,7 @@ app_ui = ui.page_fluid(
         ui.div("✅ Action Items This Week", class_="section-header"),
         ui.output_ui("action_items"),
 
-        # Partner / SOW filter
+        # Partner filter
         ui.div(
             ui.input_select(
                 "partner_filter",
@@ -219,17 +220,24 @@ app_ui = ui.page_fluid(
                 choices={"": "— Select a partner —"},
                 width="260px",
             ),
-            ui.input_select(
-                "sow_filter",
-                "SOW:",
-                choices={"": "— All SOWs —"},
-                width="220px",
-            ),
             ui.input_checkbox("flagged_only", "Flagged Only", False),
             class_="filter-row",
         ),
 
+        # SOW checkboxes
+        ui.div(
+            ui.div("SOW:", style="font-weight:600; font-size:0.85rem; margin-right:8px;"),
+            ui.output_ui("sow_checkboxes"),
+            ui.input_action_button("toggle_sows", "Select / Deselect All", class_="btn btn-sm btn-outline-secondary"),
+            style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; flex-wrap:wrap;",
+        ),
+
+        # SOW summary table
+        ui.div("Summary by SOW", class_="section-header"),
+        ui.output_data_frame("sow_summary_table"),
+
         # Detail table
+        ui.div("Project Detail", class_="section-header"),
         ui.output_data_frame("detail_table"),
     ]),
 )
@@ -263,20 +271,46 @@ def server(input: Inputs, output: Outputs, session: Session):
         df = processed_data()
         return df[df["partner"].astype(str).str.upper() == sel.upper()].copy()
 
-    @reactive.effect
-    def _update_sows():
+    _sow_all_selected = reactive.value(True)
+
+    @render.ui
+    def sow_checkboxes():
         sows = get_sow_list(_partner_data())
-        choices = {"": "— All SOWs —"}
-        for s in sows:
-            choices[s] = s
-        ui.update_select("sow_filter", choices=choices)
+        if not sows:
+            return ui.p("Select a partner to see SOWs.", class_="no-flag-msg")
+        return ui.input_checkbox_group(
+            "sow_filter", None, choices=sows, selected=sows, inline=True
+        )
+
+    @reactive.effect
+    @reactive.event(input.toggle_sows)
+    def _handle_toggle_sows():
+        sows = get_sow_list(_partner_data())
+        if _sow_all_selected.get():
+            ui.update_checkbox_group("sow_filter", selected=[])
+            _sow_all_selected.set(False)
+        else:
+            ui.update_checkbox_group("sow_filter", selected=sows)
+            _sow_all_selected.set(True)
+
+    @reactive.effect
+    def _reset_sow_toggle():
+        input.partner_filter()
+        _sow_all_selected.set(True)
 
     @reactive.calc
     def filtered_data() -> pd.DataFrame:
         df = _partner_data()
-        sow = input.sow_filter()
-        if sow:
-            df = df[df["sow"] == sow].copy()
+        if df.empty:
+            return df
+        try:
+            checked = list(input.sow_filter() or [])
+        except Exception:
+            checked = get_sow_list(df)
+        if checked:
+            df = df[df["sow"].isin(checked)].copy()
+        else:
+            df = df.iloc[0:0].copy()
         if input.flagged_only():
             df = df[df["is_flagged"]].copy()
         return df
@@ -444,6 +478,14 @@ def server(input: Inputs, output: Outputs, session: Session):
                 )
             )
         return ui.tags.ul(*li_tags, class_="action-list")
+
+    # ── SOW Summary Table ─────────────────────────────────────────────────────
+    @render.data_frame
+    def sow_summary_table():
+        df = filtered_data()
+        if df.empty:
+            return render.DataGrid(pd.DataFrame(), selection_mode="none", width="100%")
+        return render.DataGrid(summarize_by_sow(df), selection_mode="none", width="100%")
 
     # ── Detail Table ──────────────────────────────────────────────────────────
     @render.data_frame

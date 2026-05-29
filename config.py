@@ -2,7 +2,8 @@ NEAR_BUDGET_THRESHOLD = 80      # % hours used to flag as near-budget
 RECENTLY_CLOSED_DAYS  = 30      # days after close to keep project visible
 
 GLOBAL_NAME_EXCLUSIONS = [
-    "Leads", "Integrated Services", "Video", "Admin"
+    "Leads", "Integrated Services", "Video", "Admin",
+    "OPM", "Clinical Placement",
 ]
 
 # Partner-specific display overrides.

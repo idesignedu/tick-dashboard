@@ -101,14 +101,19 @@ def compute_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     df["trend"] = df.apply(_trend, axis=1)
 
-    # SOW: use asana_portfolio_name; "No SOW" for nulls
-    df["sow"] = (
-        df["asana_portfolio_name"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .replace("", "No SOW")
-    )
+    # SOW: prefer parts[3] of project_full_name when it starts with "SOW",
+    # fall back to asana_portfolio_name, then "No SOW"
+    def _sow(row) -> str:
+        name = str(row.get("project_full_name", ""))
+        parts = [p.strip() for p in name.split("::")]
+        if len(parts) >= 4 and parts[3].upper().startswith("SOW"):
+            return parts[3]
+        val = row.get("asana_portfolio_name")
+        if val and pd.notna(val) and str(val).strip():
+            return str(val).strip()
+        return "No SOW"
+
+    df["sow"] = df.apply(_sow, axis=1)
 
     # Flag recently-closed projects (shown with a badge in the detail table)
     cutoff = today - timedelta(days=RECENTLY_CLOSED_DAYS)
@@ -202,9 +207,41 @@ def get_partner_list(df: pd.DataFrame) -> list[str]:
 
 
 def get_sow_list(df: pd.DataFrame) -> list[str]:
-    """Return sorted list of named SOWs (excludes 'No SOW') from the given DataFrame."""
+    """Return sorted SOW values (named SOWs first, then 'No SOW' if present)."""
     sows = df["sow"].dropna().unique().tolist()
-    return sorted(s for s in sows if s != "No SOW")
+    named = sorted(s for s in sows if s != "No SOW")
+    if "No SOW" in sows:
+        named.append("No SOW")
+    return named
+
+
+def summarize_by_sow(df: pd.DataFrame) -> pd.DataFrame:
+    """SOW-level rollup: budget, hours, remaining, project count, over-budget count."""
+    active = df[~df["is_recently_closed"]].copy()
+    if active.empty:
+        return pd.DataFrame(columns=["SOW", "Budget (hrs)", "Logged (hrs)", "Remaining (hrs)", "# Projects", "# Over Budget"])
+    grp = (
+        active.groupby("sow", observed=True)
+        .agg(
+            budget=("project_budget_hours", "sum"),
+            hours=("total_hours", "sum"),
+            projects=("tick_project_id", "count"),
+            over=("over_budget", "sum"),
+        )
+        .reset_index()
+    )
+    grp["remaining"] = (grp["budget"] - grp["hours"]).round(1)
+    grp["budget"]    = grp["budget"].round(1)
+    grp["hours"]     = grp["hours"].round(1)
+    grp = grp.rename(columns={
+        "sow": "SOW",
+        "budget": "Budget (hrs)",
+        "hours": "Logged (hrs)",
+        "remaining": "Remaining (hrs)",
+        "projects": "# Projects",
+        "over": "# Over Budget",
+    })
+    return grp[["SOW", "Budget (hrs)", "Logged (hrs)", "Remaining (hrs)", "# Projects", "# Over Budget"]].sort_values("SOW")
 
 
 def prepare_display(df: pd.DataFrame) -> pd.DataFrame:
