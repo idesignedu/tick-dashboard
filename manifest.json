@@ -1,19 +1,15 @@
 {
   "version": 1,
-  "locale": "en_US",
-  "platform": "3.6",
+  "locale": ".UTF-8",
   "metadata": {
     "appmode": "python-shiny",
-    "primary_rmd": null,
-    "primary_html": null,
-    "content_category": null,
-    "has_parameters": false
+    "entrypoint": "app"
   },
   "python": {
     "version": "3.13.7",
     "package_manager": {
       "name": "pip",
-      "version": "24.0",
+      "version": "25.2",
       "package_file": "requirements.txt"
     }
   },
