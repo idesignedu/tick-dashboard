@@ -255,16 +255,25 @@ def server(input: Inputs, output: Outputs, session: Session):
     def filtered_data() -> pd.DataFrame:
         df = processed_data()
         sel = input.partner_filter()
+        if sel and sel != "All Partners":
+            df = df[df["partner"].astype(str).str.upper() == sel.upper()].copy()
         if input.flagged_only():
             df = df[df["is_flagged"]].copy()
-        elif sel and sel != "All Partners":
-            df = df[df["partner"].astype(str).str.upper() == sel.upper()].copy()
         return df
 
     # ── KPI row ───────────────────────────────────────────────────────────────
     @render.ui
     def kpi_row():
         df = filtered_data()
+        if df.empty or "is_flagged" not in df.columns:
+            return ui.div(
+                _kpi("Over Budget", "—", "", ""),
+                _kpi("Behind Schedule", "—", "", ""),
+                _kpi("On Track", "—", "", ""),
+                _kpi("Total Hours Used", "—", "", ""),
+                _kpi("Overall Budget %", "—", "", ""),
+                class_="kpi-row",
+            )
         over    = int(df["over_budget"].sum())
         behind  = int(df["behind_schedule"].sum())
         on_track = int((~df["is_flagged"]).sum())
@@ -329,6 +338,7 @@ def server(input: Inputs, output: Outputs, session: Session):
             .reset_index()
         )
         summary = summary[summary["budget"] > 0].copy()
+        summary["partner"] = summary["partner"].astype(str).str.replace("<", "&lt;", regex=False).str.replace(">", "&gt;", regex=False)
         summary["pct"] = (summary["total_hours"] / summary["budget"] * 100).round(1)
         summary = summary.sort_values("pct", ascending=True)
 
@@ -369,6 +379,7 @@ def server(input: Inputs, output: Outputs, session: Session):
             lambda r: f"{r.get('partner','')} · {_short_name(r['project_full_name'])}",
             axis=1,
         )
+        flagged["label"] = flagged["label"].str.replace("<", "&lt;", regex=False).str.replace(">", "&gt;", regex=False)
 
         fig = go.Figure()
         fig.add_trace(go.Bar(
