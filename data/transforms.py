@@ -273,17 +273,11 @@ def prepare_display(df: pd.DataFrame) -> pd.DataFrame:
     """Return a display-ready DataFrame for the Shiny DataGrid."""
     d = df.copy()
 
-    def _short_name(full_name: str) -> str:
-        parts = [p.strip() for p in str(full_name).split("::")]
-        if len(parts) >= 3:
-            return f"{parts[1]} — {parts[2]}"
-        return full_name
-
     d["Project"] = d.apply(
         lambda r: (
-            f"{_short_name(r['project_full_name'])} [Closed]"
+            f"{r['tick_original_pj_shortname']} [Closed]"
             if r["is_recently_closed"]
-            else _short_name(r["project_full_name"])
+            else str(r["tick_original_pj_shortname"])
         ),
         axis=1,
     )

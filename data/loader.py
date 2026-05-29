@@ -57,6 +57,7 @@ def load_projects() -> pd.DataFrame:
         SELECT
             tick_project_id,
             project_full_name,
+            tick_original_pj_shortname,
             partner,
             project_budget_hours,
             asana_percent_complete,

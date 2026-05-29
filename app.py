@@ -186,6 +186,26 @@ app_ui = ui.page_fluid(
     ),
 
     ui.div(class_="main-content", *[
+        # Partner filter
+        ui.div(
+            ui.input_select(
+                "partner_filter",
+                "Partner:",
+                choices={"": "— Select a partner —"},
+                width="260px",
+            ),
+            ui.input_checkbox("flagged_only", "Flagged Only", False),
+            class_="filter-row",
+        ),
+
+        # SOW checkboxes
+        ui.div(
+            ui.div("SOW:", style="font-weight:600; font-size:0.85rem; margin-right:8px;"),
+            ui.output_ui("sow_checkboxes"),
+            ui.input_action_button("toggle_sows", "Select / Deselect All", class_="btn btn-sm btn-outline-secondary"),
+            style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; flex-wrap:wrap;",
+        ),
+
         # KPI row
         ui.div(ui.output_ui("kpi_row"), class_="kpi-row"),
 
@@ -211,26 +231,6 @@ app_ui = ui.page_fluid(
         # Action Items
         ui.div("✅ Action Items This Week", class_="section-header"),
         ui.output_ui("action_items"),
-
-        # Partner filter
-        ui.div(
-            ui.input_select(
-                "partner_filter",
-                "Partner:",
-                choices={"": "— Select a partner —"},
-                width="260px",
-            ),
-            ui.input_checkbox("flagged_only", "Flagged Only", False),
-            class_="filter-row",
-        ),
-
-        # SOW checkboxes
-        ui.div(
-            ui.div("SOW:", style="font-weight:600; font-size:0.85rem; margin-right:8px;"),
-            ui.output_ui("sow_checkboxes"),
-            ui.input_action_button("toggle_sows", "Select / Deselect All", class_="btn btn-sm btn-outline-secondary"),
-            style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; flex-wrap:wrap;",
-        ),
 
         # SOW summary table
         ui.div("Summary by SOW", class_="section-header"),
