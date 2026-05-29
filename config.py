@@ -6,6 +6,13 @@ GLOBAL_NAME_EXCLUSIONS = [
     "OPM", "Clinical Placement",
 ]
 
+# Internal departments that appear as "partners" in Tick but are not clients.
+# Matched case-insensitively against the partner field.
+EXCLUDED_PARTNERS = {
+    "ELT", "ID", "IDESIGN", "IT", "LT", "LX PATHWAYS",
+    "MARKETING", "PMO", "QA", "VS",
+}
+
 # Partner-specific display overrides.
 # Keys must match the uppercase `partner` field in the `project` table exactly.
 # include_only: only show projects whose project_full_name contains one of these strings
