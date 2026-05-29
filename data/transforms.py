@@ -275,9 +275,9 @@ def prepare_display(df: pd.DataFrame) -> pd.DataFrame:
 
     d["Project"] = d.apply(
         lambda r: (
-            f"{r['tick_original_pj_shortname']} [Closed]"
+            f"{r['tick_original_pj_name']} [Closed]"
             if r["is_recently_closed"]
-            else str(r["tick_original_pj_shortname"])
+            else str(r["tick_original_pj_name"])
         ),
         axis=1,
     )
