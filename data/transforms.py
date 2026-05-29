@@ -101,6 +101,15 @@ def compute_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
     df["trend"] = df.apply(_trend, axis=1)
 
+    # SOW: use asana_portfolio_name; "No SOW" for nulls
+    df["sow"] = (
+        df["asana_portfolio_name"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace("", "No SOW")
+    )
+
     # Flag recently-closed projects (shown with a badge in the detail table)
     cutoff = today - timedelta(days=RECENTLY_CLOSED_DAYS)
 
@@ -187,8 +196,15 @@ def compute_action_items(df: pd.DataFrame) -> list[dict]:
 
 
 def get_partner_list(df: pd.DataFrame) -> list[str]:
-    """Return sorted list of unique non-null partner values."""
-    return sorted(df["partner"].dropna().astype(str).unique().tolist())
+    """Return sorted list of unique non-null partner values with at least one active project."""
+    active = df[~df["tick_archived"]]
+    return sorted(active["partner"].dropna().astype(str).unique().tolist())
+
+
+def get_sow_list(df: pd.DataFrame) -> list[str]:
+    """Return sorted list of named SOWs (excludes 'No SOW') from the given DataFrame."""
+    sows = df["sow"].dropna().unique().tolist()
+    return sorted(s for s in sows if s != "No SOW")
 
 
 def prepare_display(df: pd.DataFrame) -> pd.DataFrame:
@@ -209,13 +225,14 @@ def prepare_display(df: pd.DataFrame) -> pd.DataFrame:
         ),
         axis=1,
     )
+    d["SOW"]       = d["sow"]
     d["Hrs Used"]  = d["total_hours"].round(1)
     d["Budget"]    = d["project_budget_hours"].fillna(0).round(0).astype(int)
     d["% Used"]    = d["hours_pct"].round(1)
     d["Hrs Left"]  = d["hrs_left"].apply(lambda v: round(v, 1) if pd.notna(v) else "—")
     d["Trend"]     = d["trend"]
     d["Status"]    = d["status"]
-    return d[["Project", "Hrs Used", "Budget", "% Used", "Hrs Left", "Trend", "Status"]]
+    return d[["SOW", "Project", "Hrs Used", "Budget", "% Used", "Hrs Left", "Trend", "Status"]]
 
 
 def full_pipeline(raw_df: pd.DataFrame) -> pd.DataFrame:

@@ -25,6 +25,7 @@ from data.transforms import (
     compute_action_items,
     full_pipeline,
     get_partner_list,
+    get_sow_list,
     prepare_display,
 )
 
@@ -194,7 +195,7 @@ app_ui = ui.page_fluid(
         # Charts
         ui.div(
             ui.div(
-                ui.div("Budget Used by Partner (Active Projects %)", class_="chart-title"),
+                ui.div("Budget Used by SOW (Active Projects %)", class_="chart-title"),
                 ui.output_ui("chart_partner"),
                 class_="chart-card",
             ),
@@ -210,13 +211,19 @@ app_ui = ui.page_fluid(
         ui.div("✅ Action Items This Week", class_="section-header"),
         ui.output_ui("action_items"),
 
-        # Partner filter
+        # Partner / SOW filter
         ui.div(
             ui.input_select(
                 "partner_filter",
                 "Partner:",
                 choices={"": "— Select a partner —"},
                 width="260px",
+            ),
+            ui.input_select(
+                "sow_filter",
+                "SOW:",
+                choices={"": "— All SOWs —"},
+                width="220px",
             ),
             ui.input_checkbox("flagged_only", "Flagged Only", False),
             class_="filter-row",
@@ -248,12 +255,28 @@ def server(input: Inputs, output: Outputs, session: Session):
         ui.update_select("partner_filter", choices=choices)
 
     @reactive.calc
-    def filtered_data() -> pd.DataFrame:
+    def _partner_data() -> pd.DataFrame:
+        """Data filtered to the selected partner only (before SOW/flagged filters)."""
         sel = input.partner_filter()
         if not sel:
             return processed_data().iloc[0:0].copy()
         df = processed_data()
-        df = df[df["partner"].astype(str).str.upper() == sel.upper()].copy()
+        return df[df["partner"].astype(str).str.upper() == sel.upper()].copy()
+
+    @reactive.effect
+    def _update_sows():
+        sows = get_sow_list(_partner_data())
+        choices = {"": "— All SOWs —"}
+        for s in sows:
+            choices[s] = s
+        ui.update_select("sow_filter", choices=choices)
+
+    @reactive.calc
+    def filtered_data() -> pd.DataFrame:
+        df = _partner_data()
+        sow = input.sow_filter()
+        if sow:
+            df = df[df["sow"] == sow].copy()
         if input.flagged_only():
             df = df[df["is_flagged"]].copy()
         return df
@@ -320,10 +343,10 @@ def server(input: Inputs, output: Outputs, session: Session):
             )
         return ui.div(*cards, class_="attention-row")
 
-    # ── Chart: Budget Used by Partner ─────────────────────────────────────────
+    # ── Chart: Budget Used by SOW ─────────────────────────────────────────────
     @render.ui
     def chart_partner():
-        df = filtered_data()
+        df = _partner_data()
         if df.empty or "is_recently_closed" not in df.columns:
             return ui.p("Select a partner to view chart.", class_="no-flag-msg")
         active = df[~df["is_recently_closed"]].copy()
@@ -331,12 +354,12 @@ def server(input: Inputs, output: Outputs, session: Session):
             return ui.p("No data.", class_="no-flag-msg")
 
         summary = (
-            active.groupby("partner", observed=True)
+            active.groupby("sow", observed=True)
             .agg(total_hours=("total_hours", "sum"), budget=("project_budget_hours", "sum"))
             .reset_index()
         )
         summary = summary[summary["budget"] > 0].copy()
-        summary["partner"] = summary["partner"].astype(str).str.replace("<", "&lt;", regex=False).str.replace(">", "&gt;", regex=False)
+        summary["sow"] = summary["sow"].astype(str).str.replace("<", "&lt;", regex=False).str.replace(">", "&gt;", regex=False)
         summary["pct"] = (summary["total_hours"] / summary["budget"] * 100).round(1)
         summary = summary.sort_values("pct", ascending=True)
 
@@ -347,7 +370,7 @@ def server(input: Inputs, output: Outputs, session: Session):
         fig = go.Figure(
             go.Bar(
                 x=summary["pct"],
-                y=summary["partner"],
+                y=summary["sow"],
                 orientation="h",
                 marker_color=colors,
                 text=summary["pct"].apply(lambda v: f"{v:.0f}%"),
