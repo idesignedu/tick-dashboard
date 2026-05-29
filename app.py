@@ -13,7 +13,7 @@ Environment variables:
     DB_SCHEMA      Schema prefix: "" for SQLite, "production" for PostgreSQL
 """
 
-from datetime import date
+from datetime import date, datetime
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -165,6 +165,7 @@ def _rules_text() -> str:
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 _today_str = date.today().strftime("%B %d, %Y")
+_pulled_at = datetime.now().strftime("%B %d, %Y %I:%M %p")
 
 app_ui = ui.page_fluid(
     ui.tags.style(_CSS),
@@ -182,7 +183,7 @@ app_ui = ui.page_fluid(
     ui.div(class_="main-content", *[
         # Data source banners
         ui.div(
-            f"💡 Data source: PostgreSQL (pulled live {_today_str}) · Hours from tick_entries · Budget from project table",
+            f"💡 Data source: PostgreSQL (pulled live {_pulled_at}) · Hours from tick_entries · Budget from project table",
             class_="info-banner",
         ),
         ui.div(_rules_text(), class_="info-banner", style="margin-top: 4px;"),
