@@ -142,7 +142,7 @@ def _kpi(label: str, value: str, sub: str = "", css: str = "") -> ui.Tag:
 
 def _plotly_html(fig) -> ui.HTML:
     return ui.HTML(
-        fig.to_html(full_html=False, include_plotlyjs="cdn", config={"responsive": True})
+        fig.to_html(full_html=False, include_plotlyjs=False, config={"responsive": True})
     )
 
 
@@ -168,6 +168,9 @@ _today_str = date.today().strftime("%B %d, %Y")
 _pulled_at = datetime.now().strftime("%B %d, %Y %I:%M %p")
 
 app_ui = ui.page_fluid(
+    ui.head_content(
+        ui.tags.script(src="https://cdn.plot.ly/plotly-2.27.0.min.js"),
+    ),
     ui.tags.style(_CSS),
 
     # Header
