@@ -226,8 +226,9 @@ def compute_action_items(df: pd.DataFrame) -> list[dict]:
 def get_partner_list(df: pd.DataFrame) -> list[str]:
     """Return sorted client partners: active projects with hours, excluding internal depts."""
     active = df[~df["tick_archived"] & (df["total_hours"] > 0)]
-    excluded = {p.upper() for p in EXCLUDED_PARTNERS}
-    mask = active["partner"].astype(str).str.upper().isin(excluded)
+    upper = active["partner"].astype(str).str.upper()
+    exact = {p.upper() for p in EXCLUDED_PARTNERS}
+    mask = upper.isin(exact) | upper.str.contains("IDESIGN", na=False)
     return sorted(active.loc[~mask, "partner"].dropna().astype(str).unique().tolist())
 
 

@@ -8,8 +8,9 @@ GLOBAL_NAME_EXCLUSIONS = [
 
 # Internal departments that appear as "partners" in Tick but are not clients.
 # Matched case-insensitively against the partner field.
+# Exact-match internal departments (anything containing "idesign" is also excluded).
 EXCLUDED_PARTNERS = {
-    "ELT", "ID", "IDESIGN", "IT", "LT", "LX PATHWAYS",
+    "ELT", "ID", "IT", "LT", "LX PATHWAYS",
     "MARKETING", "PMO", "QA", "VS",
 }
 
