@@ -221,9 +221,9 @@ app_ui = ui.page_fluid(
         ui.div(
             ui.input_select(
                 "partner_filter",
-                "Show:",
-                choices=["All Partners"],
-                width="220px",
+                "Partner:",
+                choices={"": "— Select a partner —"},
+                width="260px",
             ),
             ui.input_checkbox("flagged_only", "Flagged Only", False),
             class_="filter-row",
@@ -249,17 +249,18 @@ def server(input: Inputs, output: Outputs, session: Session):
     @reactive.effect
     def _update_partners():
         partners = get_partner_list(processed_data())
-        choices = {"All Partners": "All Partners"}
+        choices = {"": "— Select a partner —"}
         for p in partners:
             choices[p] = p
         ui.update_select("partner_filter", choices=choices)
 
     @reactive.calc
     def filtered_data() -> pd.DataFrame:
-        df = processed_data()
         sel = input.partner_filter()
-        if sel and sel != "All Partners":
-            df = df[df["partner"].astype(str).str.upper() == sel.upper()].copy()
+        if not sel:
+            return processed_data().iloc[0:0].copy()
+        df = processed_data()
+        df = df[df["partner"].astype(str).str.upper() == sel.upper()].copy()
         if input.flagged_only():
             df = df[df["is_flagged"]].copy()
         return df
@@ -269,14 +270,7 @@ def server(input: Inputs, output: Outputs, session: Session):
     def kpi_row():
         df = filtered_data()
         if df.empty or "is_flagged" not in df.columns:
-            return ui.div(
-                _kpi("Over Budget", "—", "", ""),
-                _kpi("Behind Schedule", "—", "", ""),
-                _kpi("On Track", "—", "", ""),
-                _kpi("Total Hours Used", "—", "", ""),
-                _kpi("Overall Budget %", "—", "", ""),
-                class_="kpi-row",
-            )
+            return ui.p("Select a partner above to view project health data.", class_="no-flag-msg")
         over    = int(df["over_budget"].sum())
         behind  = int(df["behind_schedule"].sum())
         on_track = int((~df["is_flagged"]).sum())
@@ -330,7 +324,9 @@ def server(input: Inputs, output: Outputs, session: Session):
     # ── Chart: Budget Used by Partner ─────────────────────────────────────────
     @render.ui
     def chart_partner():
-        df = processed_data()
+        df = filtered_data()
+        if df.empty or "is_recently_closed" not in df.columns:
+            return ui.p("Select a partner to view chart.", class_="no-flag-msg")
         active = df[~df["is_recently_closed"]].copy()
         if active.empty:
             return ui.p("No data.", class_="no-flag-msg")
